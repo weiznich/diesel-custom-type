@@ -1,0 +1,7 @@
+[package]
+authors = ["Georg Semmler <georg_semmler_05@web.de>"]
+name = "diesel-custom-type"
+version = "0.1.0"
+
+[dependencies]
+diesel = "0.7.1"
