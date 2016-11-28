@@ -4,4 +4,4 @@ name = "diesel-custom-type"
 version = "0.1.0"
 
 [dependencies]
-diesel = "0.7.1"
+diesel = "0.8.2"
