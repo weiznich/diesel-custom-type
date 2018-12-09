@@ -1,7 +1,10 @@
 [package]
-authors = ["Georg Semmler <georg_semmler_05@web.de>"]
+authors = [
+    "Georg Semmler <georg_semmler_05@web.de>",
+    "Janosch Gräf <janosch.graef@cispa-helmholtz.de>"
+]
 name = "diesel-custom-type"
-version = "0.1.0"
+version = "1.3.3"
 
 [dependencies]
-diesel = "0.8.2"
+diesel = "1.3.3"

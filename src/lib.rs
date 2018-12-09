@@ -84,7 +84,7 @@
 //!```
 extern crate diesel;
 
-use std::error::Error;
+use diesel::deserialize;
 
 /// Trait indicating how to convert a custom type into a diesel known SQL-type
 pub trait CustomSqlType: Sized {
@@ -97,7 +97,7 @@ pub trait CustomSqlType: Sized {
     fn to_database_type(&self) -> Self::RawType;
 
     /// How to convert the database type into the custom type
-    fn from_database_type(&Self::RawType) -> Result<Self, Box<Error + Send + Sync>>;
+    fn from_database_type(_: &Self::RawType) -> deserialize::Result<Self>;
 }
 
 /// Macro to generate all needed trait implementations for diesel.
@@ -107,22 +107,22 @@ macro_rules! register_custom_type {
     ( $Target:ty  ) => {
 
 
-        impl <DB> ::diesel::types::ToSql<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
+        impl <DB> ::diesel::serialize::ToSql<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
         where $Target: CustomSqlType,
-              DB: ::diesel::backend::Backend+ ::diesel::types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>,
-              <$Target as CustomSqlType>::RawType: ::diesel::types::ToSql<<$Target as CustomSqlType>::DataBaseType, DB>
+              DB: ::diesel::backend::Backend+ ::diesel::sql_types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>,
+              <$Target as CustomSqlType>::RawType: ::diesel::serialize::ToSql<<$Target as CustomSqlType>::DataBaseType, DB>
         {
-            fn to_sql<W: ::std::io::Write>(&self, out: &mut W) -> ::std::result::Result<::diesel::types::IsNull, Box<Error + Send + Sync>>{
-                <$Target as CustomSqlType>::RawType::to_sql(&Self::to_database_type(self),out)
+            fn to_sql<W: ::std::io::Write>(&self, out: &mut ::diesel::serialize::Output<W, DB>) -> ::diesel::serialize::Result {
+                <$Target as CustomSqlType>::RawType::to_sql(&Self::to_database_type(self), out)
             }
         }
 
-        impl<DB> ::diesel::types::FromSql<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
+        impl<DB> ::diesel::deserialize::FromSql<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
             where $Target: CustomSqlType,
-                  DB: ::diesel::backend::Backend+ ::diesel::types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>,
-                  <$Target as CustomSqlType>::RawType: ::diesel::types::FromSql<<$Target as CustomSqlType>::DataBaseType, DB>
+                  DB: ::diesel::backend::Backend+ ::diesel::sql_types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>,
+                  <$Target as CustomSqlType>::RawType: ::diesel::deserialize::FromSql<<$Target as CustomSqlType>::DataBaseType, DB>
         {
-            fn from_sql(bytes: Option<&DB::RawValue>) -> ::std::result::Result<Self, Box<Error + Send + Sync>>{
+            fn from_sql(bytes: Option<&DB::RawValue>) -> ::diesel::deserialize::Result<$Target> {
                 match <$Target as CustomSqlType>::RawType::from_sql(bytes) {
                     Ok(a) => Self::from_database_type(&a),
                     Err(e) => Err(e),
@@ -130,12 +130,12 @@ macro_rules! register_custom_type {
             }
         }
 
-        impl<DB> ::diesel::types::FromSqlRow<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
-        where DB: ::diesel::backend::Backend + ::diesel::types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>,
-              $Target: ::diesel::types::FromSql<<$Target as CustomSqlType>::DataBaseType, DB>
+        impl<DB> ::diesel::deserialize::FromSqlRow<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
+        where DB: ::diesel::backend::Backend + ::diesel::sql_types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>,
+              $Target: ::diesel::deserialize::FromSql<<$Target as CustomSqlType>::DataBaseType, DB>
         {
-            fn build_from_row<R: ::diesel::row::Row<DB>>(row: &mut R) -> ::std::result::Result<Self, Box<Error + Send + Sync>> {
-                <$Target as ::diesel::types::FromSql<<$Target as CustomSqlType>::DataBaseType, DB>>::from_sql(row.take())
+            fn build_from_row<R: ::diesel::row::Row<DB>>(row: &mut R) -> ::diesel::deserialize::Result<$Target> {
+                <$Target as ::diesel::deserialize::FromSql<<$Target as CustomSqlType>::DataBaseType, DB>>::from_sql(row.take())
             }
         }
 
@@ -153,6 +153,17 @@ macro_rules! register_custom_type {
 
             fn as_expression(self) -> Self::Expression {
                 ::diesel::expression::bound::Bound::new(self)
+            }
+        }
+
+        impl<DB> ::diesel::Queryable<<$Target as CustomSqlType>::DataBaseType, DB> for $Target
+            where DB: ::diesel::backend::Backend<RawValue = [u8]> + ::diesel::sql_types::HasSqlType<<$Target as CustomSqlType>::DataBaseType>
+        {
+            type Row = <$Target as CustomSqlType>::RawType;
+
+            fn build(row: Self::Row) -> Self {
+                Self::from_database_type(&row)
+                    .expect("FIXME: We can't fail here")
             }
         }
 
