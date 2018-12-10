@@ -3,6 +3,10 @@
 Small utility crate to allow the usage of custom types with diesel.
 This crate allows to add all needed trait implementations with a few lines of code
 
+# This crate is deprecated
+
+Use diesel's buildin support for custom types instead. For an example [see this testcase](https://github.com/diesel-rs/diesel/blob/master/diesel_tests/tests/custom_types.rs)
+
 ## Example
 ```rust
 #[macro_use]
